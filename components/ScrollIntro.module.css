@@ -1,0 +1,8 @@
+.overlay { position: fixed; inset: 0; z-index: 9999; display: grid; place-items: center; background: var(--bg-0); color: var(--tx-0); opacity: 1; transition: opacity .18s ease; }
+.leaving { opacity: 0; pointer-events: none; }
+.content { text-align: left; }
+.mark { display: inline-grid; place-items: center; width: 44px; height: 34px; border: 1px solid var(--tx-0); border-radius: var(--radius-1); font-family: ui-serif, 'Songti SC', serif; font-size: 13px; }
+.content p { margin: var(--space-5) 0 var(--space-2); color: var(--tx-3); font-size: 11px; font-weight: 650; letter-spacing: .12em; }
+.content h1 { margin: 0; font-family: ui-serif, 'Songti SC', serif; font-size: clamp(40px, 8vw, 68px); font-weight: 600; letter-spacing: -.04em; }
+.overlay button { position: fixed; right: var(--space-6); bottom: var(--space-6); min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--bdr-med); border-radius: var(--radius-2); background: transparent; color: var(--tx-2); font-size: 12px; cursor: pointer; }
+@media (prefers-reduced-motion: reduce) { .overlay { transition: none; } }

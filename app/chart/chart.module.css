@@ -1,0 +1,24 @@
+.entry { width: min(720px, calc(100% - 32px)); margin: 0 auto; padding: var(--space-8) 0 var(--space-12); }
+.backLink { display: inline-flex; align-items: center; gap: var(--space-1); color: var(--tx-2); font-size: 12px; text-decoration: none; }
+.backLink:hover { color: var(--tx-0); }
+.intro { margin: var(--space-10) 0 var(--space-8); }
+.intro p { margin: 0 0 var(--space-2); color: var(--tx-3); font-size: 11px; font-weight: 650; letter-spacing: .12em; }
+.intro h1 { margin: 0; color: var(--tx-0); font-family: ui-serif, 'Songti SC', 'STSong', serif; font-size: clamp(36px, 6vw, 52px); font-weight: 600; letter-spacing: -.035em; }
+.intro span { display: block; margin-top: var(--space-4); color: var(--tx-2); font-size: 14px; line-height: 1.7; }
+.workspace { width: min(1280px, calc(100% - 32px)); margin: 0 auto; padding: var(--space-6) 0 var(--space-10); }
+.toolbar { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin-bottom: var(--space-4); }
+.resetButton { display: inline-flex; align-items: center; gap: var(--space-1); padding: var(--space-2) var(--space-3); border: 1px solid var(--bdr-med); border-radius: var(--radius-2); background: transparent; color: var(--tx-2); font-size: 12px; cursor: pointer; }
+.resetButton:hover { background: var(--bg-1); color: var(--tx-0); }
+.exportActions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--space-2); }
+.exportActions button { min-height: 36px; padding: 0 var(--space-3); border: 1px solid var(--bdr-med); border-radius: var(--radius-2); background: var(--bg-card); color: var(--tx-1); font-size: 11px; cursor: pointer; }
+.exportActions button:first-child { border-color: var(--tx-0); background: var(--tx-0); color: var(--bg-0); }
+.exportActions button:disabled { opacity: .5; cursor: wait; }
+.chartGrid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 380px); gap: var(--space-5); margin-top: var(--space-4); align-items: start; }
+@media (max-width: 920px) { .chartGrid { grid-template-columns: 1fr; } }
+@media (max-width: 620px) { .toolbar { align-items: flex-start; flex-direction: column; } .exportActions { justify-content: flex-start; } }
+
+@media print {
+  .toolbar { display: none; }
+  .workspace { width: 100%; padding: 0; }
+  .chartGrid { grid-template-columns: 1fr; }
+}
