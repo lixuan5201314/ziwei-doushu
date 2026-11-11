@@ -30,5 +30,18 @@
 .tableWrap td input { width: 130px; }
 .tableWrap tbody button { min-height: 34px; }
 .tableWrap tbody button:disabled { opacity: .5; }
+.actions { display: flex; align-items: center; gap: var(--space-2); }
+.tableWrap tbody .secondaryButton { border-color: var(--bdr-med); background: transparent; color: var(--tx-1); white-space: nowrap; }
+.tableWrap tbody .secondaryButton:hover { border-color: var(--tx-1); }
+.passwordRow td { padding: 0 var(--space-3) var(--space-4); background: var(--bg-1); }
+.passwordForm { display: grid; grid-template-columns: minmax(150px, 1fr) minmax(180px, 1fr) minmax(180px, 1fr) auto; align-items: end; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--bdr-med); border-radius: var(--radius-2); background: var(--bg-card); }
+.passwordForm > div:first-child { align-self: center; }
+.passwordForm > div:first-child strong, .passwordForm > div:first-child span { display: block; }
+.passwordForm > div:first-child strong { color: var(--tx-0); font-size: 12px; }
+.passwordForm > div:first-child span { margin-top: 3px; color: var(--tx-3); font-size: 10px; }
+.passwordForm label span { display: block; margin-bottom: var(--space-2); color: var(--tx-3); font-size: 10px; }
+.passwordForm label input { width: 100%; }
+.passwordActions { display: flex; gap: var(--space-2); }
 .empty, .loading { padding: var(--space-8); color: var(--tx-3); text-align: center; }
-@media (max-width: 760px) { .page { grid-template-columns: 1fr; } .sidebar { position: static; height: auto; flex-direction: row; align-items: center; gap: var(--space-5); padding: var(--space-4); border-right: 0; border-bottom: 1px solid var(--bdr); } .sidebar nav { display: flex; margin: 0; overflow-x: auto; } .sidebar > p { display: none; } .main { padding: var(--space-5) var(--space-4); } .stats { grid-template-columns: 1fr; } }
+@media (max-width: 1100px) { .passwordForm { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 760px) { .page { grid-template-columns: 1fr; } .sidebar { position: static; height: auto; flex-direction: row; align-items: center; gap: var(--space-5); padding: var(--space-4); border-right: 0; border-bottom: 1px solid var(--bdr); } .sidebar nav { display: flex; margin: 0; overflow-x: auto; } .sidebar > p { display: none; } .main { padding: var(--space-5) var(--space-4); } .stats { grid-template-columns: 1fr; } .passwordForm { grid-template-columns: 1fr; } }

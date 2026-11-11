@@ -1,8 +1,9 @@
 import { NextResponse } from 'next/server';
+import { hashPassword } from '@/lib/auth/crypto';
 import { getCurrentUser } from '@/lib/auth/session';
-import { updateUserByAdmin } from '@/lib/auth/store';
+import { updateUserByAdmin, updateUserPasswordByAdmin } from '@/lib/auth/store';
 import { toPublicUser, type UserRole, type UserStatus } from '@/lib/auth/types';
-import { isSameOrigin } from '@/lib/auth/validation';
+import { isSameOrigin, validatePassword } from '@/lib/auth/validation';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,7 +19,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (body.role === 'user' || body.role === 'admin') changes.role = body.role;
   if (body.status === 'active' || body.status === 'disabled') changes.status = body.status;
   if (id === currentUser.id && (changes.role === 'user' || changes.status === 'disabled')) return NextResponse.json({ message: '不能降低或停用当前登录的管理员账号' }, { status: 400 });
-  const updated = await updateUserByAdmin(id, changes);
+  if (typeof body.password === 'string') {
+    const passwordError = validatePassword(body.password);
+    if (passwordError) return NextResponse.json({ message: passwordError }, { status: 400 });
+  }
+  let updated = typeof body.password === 'string'
+    ? await updateUserPasswordByAdmin(id, await hashPassword(body.password))
+    : await updateUserByAdmin(id, changes);
+  if (updated && typeof body.password === 'string' && Object.keys(changes).length > 0) {
+    updated = await updateUserByAdmin(id, changes);
+  }
   if (!updated) return NextResponse.json({ message: '账号不存在' }, { status: 404 });
   return NextResponse.json({ user: toPublicUser(updated) });
 }

@@ -236,3 +236,47 @@ export async function updateUserByAdmin(id: string, changes: { name?: string; ro
   if (updated.status === 'disabled') db.prepare('DELETE FROM auth_sessions WHERE user_id=?').run(id);
   return updated;
 }
+
+export async function updateUserPasswordByAdmin(id: string, passwordHash: string): Promise<AuthUserRecord | null> {
+  const updatedAt = new Date().toISOString();
+  if (usePostgres()) {
+    await ensurePostgresSchema();
+    const client = await getPool().connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        'UPDATE auth_users SET password_hash=$1, updated_at=$2 WHERE id=$3 RETURNING *',
+        [passwordHash, updatedAt, id],
+      );
+      if (!result.rows[0]) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+      await client.query('DELETE FROM auth_sessions WHERE user_id=$1', [id]);
+      await client.query('COMMIT');
+      return fromRow(result.rows[0]);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+
+  const db = getSqlite();
+  db.exec('BEGIN IMMEDIATE');
+  try {
+    const result = db.prepare('UPDATE auth_users SET password_hash=?, updated_at=? WHERE id=?').run(passwordHash, updatedAt, id);
+    if (Number(result.changes) === 0) {
+      db.exec('ROLLBACK');
+      return null;
+    }
+    db.prepare('DELETE FROM auth_sessions WHERE user_id=?').run(id);
+    const row = db.prepare('SELECT * FROM auth_users WHERE id=? LIMIT 1').get(id) as DatabaseRow;
+    db.exec('COMMIT');
+    return fromRow(row);
+  } catch (error) {
+    db.exec('ROLLBACK');
+    throw error;
+  }
+}
