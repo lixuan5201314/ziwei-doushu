@@ -22,5 +22,20 @@ export function safeReturnTo(value: unknown): string {
 export function isSameOrigin(request: Request): boolean {
   const origin = request.headers.get('origin');
   if (!origin) return true;
-  return origin === new URL(request.url).origin;
+
+  const allowedOrigins = new Set<string>();
+  for (const value of [request.url, process.env.NEXT_PUBLIC_SITE_URL]) {
+    if (!value) continue;
+    try {
+      allowedOrigins.add(new URL(value).origin);
+    } catch {
+      // 忽略无效配置；请求来源仍需匹配其他可信地址。
+    }
+  }
+
+  try {
+    return allowedOrigins.has(new URL(origin).origin);
+  } catch {
+    return false;
+  }
 }
