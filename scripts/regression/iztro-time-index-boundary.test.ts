@@ -39,6 +39,7 @@ function formAt(clockHour: string): BirthFormState {
     clockHour,
     clockMinute: '30',
     unknownTime: false,
+    useTrueSolarTime: false,
     province: '',
     city: '',
     longitude: 120,
@@ -59,5 +60,13 @@ assert.deepEqual(
   { year: 2000, month: 1, day: 31, hour: 0 },
   '00:30 stays on the same calendar date and branch index 0',
 );
+
+const trueSolar = formToBirthInfo({ ...formAt('1'), longitude: 90, useTrueSolarTime: true });
+assert.equal(trueSolar.hour, 0, 'true-solar correction can move a clock-time 丑时 into 子时');
+assert.equal(trueSolar.timeStandard, 'true-solar', 'the selected time method must be retained in the chart');
+
+const clockTime = formToBirthInfo({ ...formAt('1'), longitude: 90 });
+assert.equal(clockTime.hour, 1, 'clock time remains the default even when a longitude is present');
+assert.equal(clockTime.timeStandard, 'clock', 'clock time must be marked as the default method');
 
 console.log('iztro hour-index boundary regression passed');

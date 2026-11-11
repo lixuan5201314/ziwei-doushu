@@ -36,6 +36,15 @@ if (url.startsWith('sqlite:')) {
     );
     CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions(user_id);
     CREATE INDEX IF NOT EXISTS auth_sessions_expires_at_idx ON auth_sessions(expires_at);
+    CREATE TABLE IF NOT EXISTS saved_charts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+      label TEXT NOT NULL,
+      birth_data TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS saved_charts_user_id_updated_at_idx ON saved_charts(user_id, updated_at DESC);
   `);
   db.close();
   console.log(`SQLite 账号数据库初始化完成：${filename}`);

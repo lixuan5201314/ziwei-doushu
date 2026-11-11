@@ -10,6 +10,12 @@ export function calcTrueSolarBranch(clockHour: number, clockMinute: number, long
   return Math.floor((solar - 60) / 120) + 1;
 }
 
+export function calcClockBranch(clockHour: number, clockMinute: number): number {
+  const clockMins = ((clockHour * 60 + clockMinute) % 1440 + 1440) % 1440;
+  if (clockMins >= 1380 || clockMins < 60) return 0;
+  return Math.floor((clockMins - 60) / 120) + 1;
+}
+
 /** BirthFormState → BirthInfo
  *
  * 子时规则（倪海厦体系/三合派标准）：
@@ -35,7 +41,9 @@ export function formToBirthInfo(form: BirthFormState): BirthInfo {
 
   const hour = form.unknownTime
     ? 0
-    : calcTrueSolarBranch(parseInt(form.clockHour) || 0, parseInt(form.clockMinute) || 0, form.longitude);
+    : form.useTrueSolarTime
+      ? calcTrueSolarBranch(parseInt(form.clockHour) || 0, parseInt(form.clockMinute) || 0, form.longitude)
+      : calcClockBranch(parseInt(form.clockHour) || 0, parseInt(form.clockMinute) || 0);
   return {
     year: y, month: m, day: d,
     hour,
@@ -44,6 +52,7 @@ export function formToBirthInfo(form: BirthFormState): BirthInfo {
     province: form.province || undefined,
     city: form.city || undefined,
     longitude: form.province ? form.longitude : undefined,
+    timeStandard: form.useTrueSolarTime ? 'true-solar' : 'clock',
   };
 }
 
@@ -63,6 +72,7 @@ export function formToSearchParams(form: BirthFormState): URLSearchParams {
   if (form.province) p.set('p', form.province);
   if (form.city) p.set('c', form.city);
   if (form.longitude && form.longitude !== 120) p.set('lo', String(form.longitude));
+  if (form.useTrueSolarTime) p.set('ts', '1');
   p.set('g', form.gender === 'male' ? 'm' : 'f');
   return p;
 }
@@ -79,6 +89,7 @@ export function searchParamsToForm(params: URLSearchParams): Partial<BirthFormSt
     month,
     day,
     unknownTime: params.get('u') === '1',
+    useTrueSolarTime: params.get('ts') === '1',
     clockHour: params.get('h') || '8',
     clockMinute: params.get('mi') || '0',
     province: params.get('p') || '',

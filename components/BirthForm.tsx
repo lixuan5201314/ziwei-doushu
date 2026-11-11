@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { BirthInfo } from '@/lib/ziwei/types';
 import { SHICHEN } from '@/lib/ziwei/constants';
 import { PROVINCES } from '@/lib/ziwei/cities';
+import { formToBirthInfo } from '@/lib/ziwei/share';
 import styles from './BirthForm.module.css';
 
 export interface BirthFormState {
@@ -14,6 +15,7 @@ export interface BirthFormState {
   clockHour: string;
   clockMinute: string;
   unknownTime: boolean;
+  useTrueSolarTime: boolean;
   province: string;
   city: string;
   longitude: number;
@@ -38,6 +40,12 @@ function calcTrueSolarBranch(clockHour: number, clockMinute: number, longitude: 
   return Math.floor((solar - 60) / 120) + 1;
 }
 
+function calcClockBranch(clockHour: number, clockMinute: number): number {
+  const minutes = ((clockHour * 60 + clockMinute) % 1440 + 1440) % 1440;
+  if (minutes >= 1380 || minutes < 60) return 0;
+  return Math.floor((minutes - 60) / 120) + 1;
+}
+
 function isValidDate(y: number, m: number, d: number): boolean {
   if (!y || !m || !d) return false;
   const date = new Date(y, m - 1, d);
@@ -53,6 +61,7 @@ export default function BirthForm({ onSubmit, loading = false, initialData, onFo
     clockHour: initialData?.clockHour ?? '8',
     clockMinute: initialData?.clockMinute ?? '0',
     unknownTime: initialData?.unknownTime ?? false,
+    useTrueSolarTime: initialData?.useTrueSolarTime ?? false,
     province: initialData?.province ?? '',
     city: initialData?.city ?? '',
     longitude: initialData?.longitude ?? 120,
@@ -67,7 +76,12 @@ export default function BirthForm({ onSubmit, loading = false, initialData, onFo
   }, [form]);
 
   const cityList = useMemo(() => PROVINCES.find((province) => province.name === form.province)?.cities ?? [], [form.province]);
-  const branch = useMemo(() => form.unknownTime ? 0 : calcTrueSolarBranch(Number(form.clockHour), Number(form.clockMinute), form.longitude), [form.clockHour, form.clockMinute, form.longitude, form.unknownTime]);
+  const branch = useMemo(() => {
+    if (form.unknownTime) return 0;
+    return form.useTrueSolarTime
+      ? calcTrueSolarBranch(Number(form.clockHour), Number(form.clockMinute), form.longitude)
+      : calcClockBranch(Number(form.clockHour), Number(form.clockMinute));
+  }, [form.clockHour, form.clockMinute, form.longitude, form.unknownTime, form.useTrueSolarTime]);
   const offsetMin = Math.round((form.longitude - 120) * 4);
   const shichenInfo = SHICHEN[branch];
   const y = Number(form.year);
@@ -105,7 +119,7 @@ export default function BirthForm({ onSubmit, loading = false, initialData, onFo
     setTouched({ year: true, month: true, day: true });
     if (hasError) return;
     onFormSave?.({ ...form });
-    onSubmit({ year: y, month: m, day: d, hour: branch, gender: form.gender, name: form.name || undefined, province: form.province || undefined, city: form.city || undefined, longitude: form.province ? form.longitude : undefined });
+    onSubmit(formToBirthInfo(form));
   };
 
   return (
@@ -137,20 +151,22 @@ export default function BirthForm({ onSubmit, loading = false, initialData, onFo
       </div>
 
       <div className={styles.section}>
-        <div className={styles.sectionTitle}><span>03</span><div><h3>出生时间与地点</h3><p>地点用于真太阳时校正。</p></div></div>
+        <div className={styles.sectionTitle}><span>03</span><div><h3>出生时间与地点</h3><p>默认按当时钟表时间排盘，也可选择真太阳时校正。</p></div></div>
         <div className={styles.twoColumns}>
           <label className={styles.field}><span>省份或直辖市 <small>选填</small></span><select value={form.province} onChange={(event) => handleProvince(event.target.value)}><option value="">选择地区</option>{PROVINCES.map((province) => <option key={province.name} value={province.name}>{province.name}</option>)}</select></label>
           <label className={styles.field}><span>城市 <small>选填</small></span><select value={form.city} disabled={!form.province} onChange={(event) => handleCity(event.target.value)}><option value="">{form.province ? '选择城市' : '请先选择地区'}</option>{cityList.map((city) => <option key={city.name} value={city.name}>{city.name}</option>)}</select></label>
         </div>
-        {form.province && <p className={styles.meta}>{form.city || '尚未选择城市'} / 经度 {form.longitude.toFixed(1)}°E / 时差 {offsetMin > 0 ? '+' : ''}{offsetMin} 分钟</p>}
+        {form.province && <p className={styles.meta}>{form.city || '尚未选择城市'} / 经度 {form.longitude.toFixed(1)}°E{form.useTrueSolarTime ? ` / 经度校正 ${offsetMin > 0 ? '+' : ''}${offsetMin} 分钟` : ' / 当前未启用真太阳时校正'}</p>}
         <div className={`${styles.timePanel} ${form.unknownTime ? styles.disabled : ''}`}>
           <div className={styles.twoColumns}>
             <label className={styles.field}><span>小时</span><select disabled={form.unknownTime} value={form.clockHour} onChange={(event) => update('clockHour', event.target.value)}>{Array.from({ length: 24 }, (_, hour) => <option key={hour} value={hour}>{String(hour).padStart(2, '0')} 时</option>)}</select></label>
             <label className={styles.field}><span>分钟</span><select disabled={form.unknownTime} value={form.clockMinute} onChange={(event) => update('clockMinute', event.target.value)}>{Array.from({ length: 60 }, (_, minute) => <option key={minute} value={minute}>{String(minute).padStart(2, '0')} 分</option>)}</select></label>
           </div>
-          <p className={styles.result}>校正结果 <strong>{SHICHEN_NAMES[branch]}时</strong><span>{shichenInfo ? ` ${shichenInfo.range}` : ''}</span></p>
+          <p className={styles.result}>{form.useTrueSolarTime ? '真太阳时结果' : '钟表时间结果'} <strong>{SHICHEN_NAMES[branch]}时</strong><span>{shichenInfo ? ` ${shichenInfo.range}` : ''}</span></p>
         </div>
         <label className={styles.checkbox}><input type="checkbox" checked={form.unknownTime} onChange={(event) => update('unknownTime', event.target.checked)} /><span>出生时间不详，以子时起盘</span></label>
+        <label className={styles.checkbox}><input type="checkbox" checked={form.useTrueSolarTime} disabled={form.unknownTime} onChange={(event) => update('useTrueSolarTime', event.target.checked)} /><span>采用真太阳时校正（可选）</span></label>
+        <p className={styles.methodNote}>真太阳时在不同流派中存在口径争议。临近时辰边界时，建议分别排盘对照。</p>
       </div>
 
       <div className={styles.formFooter}>

@@ -9,6 +9,15 @@ import type { AuthUserRecord, UserRole, UserStatus } from './types';
 
 type DatabaseRow = Record<string, unknown>;
 
+export interface SavedChartRecord {
+  id: string;
+  userId: string;
+  label: string;
+  birthData: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
 const globalForAuth = globalThis as typeof globalThis & {
   ziweiAuthPool?: Pool;
   ziweiAuthSchema?: Promise<void>;
@@ -59,6 +68,15 @@ async function ensurePostgresSchema() {
       );
       CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions(user_id);
       CREATE INDEX IF NOT EXISTS auth_sessions_expires_at_idx ON auth_sessions(expires_at);
+      CREATE TABLE IF NOT EXISTS saved_charts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+        label TEXT NOT NULL,
+        birth_data JSONB NOT NULL,
+        created_at TIMESTAMPTZ NOT NULL,
+        updated_at TIMESTAMPTZ NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS saved_charts_user_id_updated_at_idx ON saved_charts(user_id, updated_at DESC);
     `).then(() => undefined);
   }
   await globalForAuth.ziweiAuthSchema;
@@ -100,6 +118,15 @@ function getSqlite() {
       );
       CREATE INDEX IF NOT EXISTS auth_sessions_user_id_idx ON auth_sessions(user_id);
       CREATE INDEX IF NOT EXISTS auth_sessions_expires_at_idx ON auth_sessions(expires_at);
+      CREATE TABLE IF NOT EXISTS saved_charts (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES auth_users(id) ON DELETE CASCADE,
+        label TEXT NOT NULL,
+        birth_data TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS saved_charts_user_id_updated_at_idx ON saved_charts(user_id, updated_at DESC);
     `);
     globalForAuth.ziweiAuthSqlite = db;
   }
@@ -117,6 +144,18 @@ function fromRow(row: DatabaseRow): AuthUserRecord {
     createdAt: new Date(String(row.created_at)).toISOString(),
     updatedAt: new Date(String(row.updated_at)).toISOString(),
     lastLoginAt: row.last_login_at ? new Date(String(row.last_login_at)).toISOString() : null,
+  };
+}
+
+function savedChartFromRow(row: DatabaseRow): SavedChartRecord {
+  const rawBirthData = row.birth_data;
+  return {
+    id: String(row.id),
+    userId: String(row.user_id),
+    label: String(row.label),
+    birthData: typeof rawBirthData === 'string' ? JSON.parse(rawBirthData) : rawBirthData,
+    createdAt: new Date(String(row.created_at)).toISOString(),
+    updatedAt: new Date(String(row.updated_at)).toISOString(),
   };
 }
 
@@ -279,4 +318,46 @@ export async function updateUserPasswordByAdmin(id: string, passwordHash: string
     db.exec('ROLLBACK');
     throw error;
   }
+}
+
+export async function listSavedCharts(userId: string): Promise<SavedChartRecord[]> {
+  if (usePostgres()) {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      'SELECT * FROM saved_charts WHERE user_id=$1 ORDER BY updated_at DESC LIMIT 50',
+      [userId],
+    );
+    return result.rows.map(savedChartFromRow);
+  }
+  const rows = getSqlite().prepare('SELECT * FROM saved_charts WHERE user_id=? ORDER BY updated_at DESC LIMIT 50').all(userId) as DatabaseRow[];
+  return rows.map(savedChartFromRow);
+}
+
+export async function createSavedChart(userId: string, label: string, birthData: unknown): Promise<SavedChartRecord> {
+  const now = new Date().toISOString();
+  const id = randomUUID();
+  const serialized = JSON.stringify(birthData);
+  if (usePostgres()) {
+    await ensurePostgresSchema();
+    const result = await getPool().query(
+      `INSERT INTO saved_charts (id, user_id, label, birth_data, created_at, updated_at)
+       VALUES ($1,$2,$3,$4::jsonb,$5,$6) RETURNING *`,
+      [id, userId, label, serialized, now, now],
+    );
+    return savedChartFromRow(result.rows[0]);
+  }
+  getSqlite().prepare(
+    'INSERT INTO saved_charts (id, user_id, label, birth_data, created_at, updated_at) VALUES (?,?,?,?,?,?)',
+  ).run(id, userId, label, serialized, now, now);
+  return { id, userId, label, birthData, createdAt: now, updatedAt: now };
+}
+
+export async function deleteSavedChart(userId: string, id: string): Promise<boolean> {
+  if (usePostgres()) {
+    await ensurePostgresSchema();
+    const result = await getPool().query('DELETE FROM saved_charts WHERE id=$1 AND user_id=$2', [id, userId]);
+    return Boolean(result.rowCount);
+  }
+  const result = getSqlite().prepare('DELETE FROM saved_charts WHERE id=? AND user_id=?').run(id, userId);
+  return Number(result.changes) > 0;
 }
