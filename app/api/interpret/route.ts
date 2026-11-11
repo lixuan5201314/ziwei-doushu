@@ -1,4 +1,5 @@
 import { NextRequest } from 'next/server';
+import { getCurrentUser } from '@/lib/auth/session';
 import { STEMS, BRANCHES } from '@/lib/ziwei/constants';
 import type { ZiweiChart, Palace } from '@/lib/ziwei/types';
 
@@ -79,6 +80,11 @@ function serializeChart(chart: ZiweiChart): string {
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return Response.json({ message: '请先登录' }, { status: 401 });
+  }
+
   // ── 1. 读配置 ──
   const provider = (process.env.AI_PROVIDER || 'deepseek').toLowerCase();
   const apiKey =
