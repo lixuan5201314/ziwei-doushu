@@ -128,7 +128,7 @@ async function analyze(request: NextRequest, audit: AnalysisAudit) {
   if (!isValidChart(body?.chartA) || !isValidChart(body?.chartB)) {
     return Response.json({ message: '双方命盘数据不完整' }, { status: 400 });
   }
-  if (body.retainDetails === true) audit.setBirths(body.chartA.birthInfo, body.chartB.birthInfo);
+  if (body.retainDetails !== false) audit.setBirths(body.chartA.birthInfo, body.chartB.birthInfo);
 
   const question = String(body?.question ?? '').trim().slice(0, 500);
   const charts = `${serializeChart(body.chartA, '甲方')}\n\n${serializeChart(body.chartB, '乙方')}`;

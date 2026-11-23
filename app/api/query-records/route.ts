@@ -18,7 +18,8 @@ export async function POST(request: Request) {
   } | null;
   if (body?.status !== 'success' && body?.status !== 'failed') return Response.json({ message: '记录状态无效' }, { status: 400 });
   if (!allowAuthAttempt(`chart-record:${user.id}`, 40, 60_000)) return new Response(null, { status: 429 });
-  const birth = body.retainDetails === true ? queryBirthDetails(body.birth) : null;
+  // 尊重刷新前仍在运行的旧页面所提交的明确选择。
+  const birth = body.retainDetails !== false ? queryBirthDetails(body.birth) : null;
   await recordQuery(user.id, 'chart', body.status, birth ? {
     births: [birth],
     result: body.status === 'success' && typeof body.result === 'string' ? body.result.trim().slice(0, 200) : undefined,

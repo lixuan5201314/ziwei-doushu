@@ -140,7 +140,7 @@ async function analyze(req: NextRequest, audit: AnalysisAudit) {
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
-  if (body.retainDetails === true) audit.setBirths(body.chart?.birthInfo);
+  if (body.retainDetails !== false) audit.setBirths(body.chart?.birthInfo);
 
   // ── 3. 组装 messages ──
   const chartText = serializeChart(body.chart as ZiweiChart);

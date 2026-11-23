@@ -18,7 +18,6 @@ interface SelectedSiHua {
 
 interface InsightPanelProps {
   chart: ZiweiChart;
-  retainDetails?: boolean;
   selectedPalace?: Palace | null;
   selectedSiHua?: SelectedSiHua | null;
 }
@@ -183,7 +182,7 @@ function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
   );
 }
 
-export default function InsightPanel({ chart, selectedPalace, selectedSiHua, retainDetails = false }: InsightPanelProps) {
+export default function InsightPanel({ chart, selectedPalace, selectedSiHua }: InsightPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -280,7 +279,7 @@ ${selectedSiHua.starName}化${selectedSiHua.siHua}落在【${palaceName}】，�
       const res = await fetch('/api/interpret', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chart, messages: apiMessages, retainDetails }),
+        body: JSON.stringify({ chart, messages: apiMessages }),
       });
       if (!res.ok) {
         let detail = '';

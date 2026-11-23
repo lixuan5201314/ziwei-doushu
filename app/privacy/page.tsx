@@ -13,7 +13,7 @@ export default function PrivacyPage() {
       </header>
       <main style={{ maxWidth: 800, margin: '0 auto', padding: '60px 24px 80px', color: 'var(--tx-1)', lineHeight: 1.8 }}>
         <h1 style={{ fontSize: 28, fontWeight: 600, marginBottom: 8 }}>隐私政策</h1>
-        <p style={{ fontSize: 12, color: 'var(--tx-3)', marginBottom: 32 }}>最后更新：2026年11月</p>
+        <p style={{ fontSize: 12, color: 'var(--tx-3)', marginBottom: 32 }}>最后更新：2026年11月23日</p>
 
       <h2 style={{ fontSize: 18, marginTop: 32, marginBottom: 12 }}>1. 我们收集的信息</h2>
       <p>为提供紫微命盘排盘与解读服务，我们可能收集以下信息：</p>
@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         <li><strong>命盘必要信息</strong>：姓名（选填）、出生公历年月日、出生时辰、性别、出生地经度</li>
         <li><strong>账号信息（注册后）</strong>：邮箱、称呼与加密后的登录凭据</li>
         <li><strong>保存记录</strong>：仅在你主动点击“保存命盘”后，将命盘资料保存到当前账号</li>
-        <li><strong>查询记录</strong>：排盘、单盘解读和双人合盘会记录账号、时间、功能及处理状态。选择保留详情时，还会保存出生日期、时间、性别、地点和查询结果。</li>
+        <li><strong>查询记录</strong>：使用排盘、单盘解读或双人合盘时，系统会自动记录账号、时间、功能、处理状态，以及查询所用的出生日期、时间、性别和填写的出生地点。排盘会记录命盘摘要，完成的单盘解读和合盘会记录 AI 输出。</li>
         <li><strong>反馈信息</strong>：你对解读内容的"准 / 不准"打分与文字反馈</li>
         <li><strong>支付信息</strong>：购买会员或单项服务时通过第三方支付（支付宝 / 微信支付）处理，本平台不存储完整卡号或密码</li>
       </ul>

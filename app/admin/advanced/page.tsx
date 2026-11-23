@@ -23,7 +23,7 @@ export default async function AdvancedAdminPage({ searchParams }: { searchParams
     <main className={styles.page}>
       <Link className={styles.back} href="/admin">返回账号管理</Link>
       <h1>查询记录</h1>
-      <p className={styles.description}>查看近 30 天的排盘、单盘解读和双人合盘。用户选择保留详情后，可打开单条记录查看。</p>
+      <p className={styles.description}>查看近 30 天的排盘、单盘解读和双人合盘。打开单条记录可查看出生资料与查询结果。</p>
       <form className={admin.search}>
         <input name="email" defaultValue={email} aria-label="搜索账号邮箱" placeholder="搜索账号邮箱" maxLength={100} />
         <button type="submit">搜索</button>

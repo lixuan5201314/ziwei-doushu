@@ -42,7 +42,6 @@ export default function ChartPage() {
   const [savedLoading, setSavedLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState('');
   const [saving, setSaving] = useState(false);
-  const [retainDetails, setRetainDetails] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -84,7 +83,6 @@ export default function ChartPage() {
   };
 
   const loadSavedChart = (item: SavedChartItem) => {
-    setRetainDetails(false);
     setInitialForm(item.birthData);
     setCurrentForm(item.birthData);
     setFormKey((value) => value + 1);
@@ -102,15 +100,15 @@ export default function ChartPage() {
       setSaveMessage('命盘生成失败，请检查出生资料后重试。');
     } finally {
       const summary = result && `${result.wuxingJuName} · 命宫在${BRANCHES[result.mingGongBranch]} · 身宫在${BRANCHES[result.shenGongBranch]}`;
+      const { name: _name, longitude: _longitude, ...birthDetails } = birth;
       void fetch('/api/query-records', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         keepalive: true,
         body: JSON.stringify({
           status: result ? 'success' : 'failed',
-          retainDetails,
-          birth: retainDetails ? birth : undefined,
-          result: retainDetails ? summary : undefined,
+          birth: birthDetails,
+          result: summary,
         }),
       }).catch(() => {});
     }
@@ -182,7 +180,7 @@ export default function ChartPage() {
           )}
         </section>
         {saveMessage && <p className={styles.saveMessage}>{saveMessage}</p>}
-        <QueryRecordNotice checked={retainDetails} onChange={setRetainDetails} />
+        <QueryRecordNotice />
         <BirthForm key={formKey} initialData={initialForm} onFormSave={setCurrentForm} onSubmit={startChart} />
       </main>
     );
@@ -192,7 +190,7 @@ export default function ChartPage() {
   return (
     <main className={styles.workspace}>
       <div className={styles.toolbar}>
-        <button type="button" onClick={() => { setChart(null); setSelectedPalace(null); setRetainDetails(false); }} className={styles.resetButton}>
+        <button type="button" onClick={() => { setChart(null); setSelectedPalace(null); }} className={styles.resetButton}>
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           重新起盘
         </button>
@@ -205,7 +203,7 @@ export default function ChartPage() {
       </div>
 
       {saveMessage && <p className={styles.saveMessage} role="status">{saveMessage}</p>}
-      <QueryRecordNotice checked={retainDetails} onChange={setRetainDetails} />
+      <QueryRecordNotice />
 
       <TimeNav
         chart={chart}
@@ -217,7 +215,7 @@ export default function ChartPage() {
 
       <div className={styles.chartGrid} ref={exportRef}>
         <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
-        <InsightPanel chart={chart} selectedPalace={selectedPalace} retainDetails={retainDetails} />
+        <InsightPanel chart={chart} selectedPalace={selectedPalace} />
       </div>
     </main>
   );
