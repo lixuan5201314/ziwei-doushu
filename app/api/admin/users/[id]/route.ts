@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { hashPassword } from '@/lib/auth/crypto';
 import { getCurrentUser } from '@/lib/auth/session';
-import { updateUserByAdmin, updateUserPasswordByAdmin } from '@/lib/auth/store';
+import { findUserById, updateUserByAdmin, updateUserPasswordByAdmin } from '@/lib/auth/store';
 import { toPublicUser, type UserRole, type UserStatus } from '@/lib/auth/types';
 import { isSameOrigin, validatePassword } from '@/lib/auth/validation';
 
@@ -13,6 +13,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const currentUser = await getCurrentUser();
   if (!currentUser || currentUser.role !== 'admin') return NextResponse.json({ message: '无权操作' }, { status: 403 });
   const { id } = await params;
+  const target = await findUserById(id);
+  if (!target) return NextResponse.json({ message: '账号不存在' }, { status: 404 });
+  const allowOwnerSelfEdit = currentUser.isSuperAdmin && currentUser.id === id;
+  if (target.isSuperAdmin && !allowOwnerSelfEdit) {
+    return NextResponse.json({ message: '高级管理员账号仅可由本人修改' }, { status: 403 });
+  }
   const body = await request.json();
   const changes: { name?: string; role?: UserRole; status?: UserStatus } = {};
   if (typeof body.name === 'string') changes.name = body.name.trim().slice(0, 50);
@@ -24,10 +30,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (passwordError) return NextResponse.json({ message: passwordError }, { status: 400 });
   }
   let updated = typeof body.password === 'string'
-    ? await updateUserPasswordByAdmin(id, await hashPassword(body.password))
-    : await updateUserByAdmin(id, changes);
+    ? await updateUserPasswordByAdmin(id, await hashPassword(body.password), allowOwnerSelfEdit)
+    : await updateUserByAdmin(id, changes, allowOwnerSelfEdit);
   if (updated && typeof body.password === 'string' && Object.keys(changes).length > 0) {
-    updated = await updateUserByAdmin(id, changes);
+    updated = await updateUserByAdmin(id, changes, allowOwnerSelfEdit);
   }
   if (!updated) return NextResponse.json({ message: '账号不存在' }, { status: 404 });
   return NextResponse.json({ user: toPublicUser(updated) });

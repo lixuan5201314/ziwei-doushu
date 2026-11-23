@@ -9,12 +9,13 @@ interface UserItem {
   email: string;
   name: string;
   role: 'user' | 'admin';
+  isSuperAdmin: boolean;
   status: 'active' | 'disabled';
   createdAt: string;
   lastLoginAt: string | null;
 }
 
-export default function AdminUsers({ currentUserId, currentUserName }: { currentUserId: string; currentUserName: string }) {
+export default function AdminUsers({ currentUserId, currentUserName, isSuperAdmin }: { currentUserId: string; currentUserName: string; isSuperAdmin: boolean }) {
   const [users, setUsers] = useState<UserItem[]>([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -92,7 +93,7 @@ export default function AdminUsers({ currentUserId, currentUserName }: { current
     <main className={styles.page}>
       <aside className={styles.sidebar}>
         <Link className={styles.brand} href="/">紫微研究</Link>
-        <nav><Link className={styles.active} href="/admin">账号管理</Link><Link href="/chart">排盘工具</Link><Link href="/account">我的账号</Link></nav>
+        <nav><Link className={styles.active} href="/admin">账号管理</Link>{isSuperAdmin && <Link href="/admin/advanced">高级后台</Link>}<Link href="/chart">排盘工具</Link><Link href="/account">我的账号</Link></nav>
         <p>{currentUserName}</p>
       </aside>
       <section className={styles.main}>
@@ -104,15 +105,17 @@ export default function AdminUsers({ currentUserId, currentUserName }: { current
           <table>
             <thead><tr><th>账号</th><th>称呼</th><th>权限</th><th>状态</th><th>注册时间</th><th>最近登录</th><th /></tr></thead>
             <tbody>
-              {users.map((user) => <Fragment key={user.id}>
+              {users.map((user) => {
+                const readOnly = user.isSuperAdmin && user.id !== currentUserId;
+                return <Fragment key={user.id}>
                 <tr>
                   <td><strong>{user.email}</strong>{user.id === currentUserId && <small>当前账号</small>}</td>
-                  <td><input value={user.name} maxLength={50} onChange={(event) => updateLocal(user.id, { name: event.target.value })} /></td>
-                  <td><select value={user.role} disabled={user.id === currentUserId} onChange={(event) => updateLocal(user.id, { role: event.target.value as UserItem['role'] })}><option value="user">普通用户</option><option value="admin">管理员</option></select></td>
-                  <td><select value={user.status} disabled={user.id === currentUserId} onChange={(event) => updateLocal(user.id, { status: event.target.value as UserItem['status'] })}><option value="active">正常</option><option value="disabled">停用</option></select></td>
+                  <td><input value={user.name} maxLength={50} disabled={readOnly} onChange={(event) => updateLocal(user.id, { name: event.target.value })} /></td>
+                  <td>{user.isSuperAdmin ? '高级管理员' : <select value={user.role} disabled={user.id === currentUserId} onChange={(event) => updateLocal(user.id, { role: event.target.value as UserItem['role'] })}><option value="user">普通用户</option><option value="admin">管理员</option></select>}</td>
+                  <td><select value={user.status} disabled={readOnly || user.id === currentUserId} onChange={(event) => updateLocal(user.id, { status: event.target.value as UserItem['status'] })}><option value="active">正常</option><option value="disabled">停用</option></select></td>
                   <td>{new Date(user.createdAt).toLocaleDateString('zh-CN')}</td>
                   <td>{user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleDateString('zh-CN') : '未登录'}</td>
-                  <td><div className={styles.actions}><button type="button" onClick={() => void save(user)} disabled={savingId === user.id}>{savingId === user.id ? '保存中' : '保存'}</button><button className={styles.secondaryButton} type="button" onClick={() => openPasswordEditor(user.id)}>修改密码</button></div></td>
+                  <td>{!readOnly && <div className={styles.actions}><button type="button" onClick={() => void save(user)} disabled={savingId === user.id}>{savingId === user.id ? '保存中' : '保存'}</button><button className={styles.secondaryButton} type="button" onClick={() => openPasswordEditor(user.id)}>修改密码</button></div>}</td>
                 </tr>
                 {passwordUserId === user.id && <tr className={styles.passwordRow}>
                   <td colSpan={7}>
@@ -124,7 +127,8 @@ export default function AdminUsers({ currentUserId, currentUserName }: { current
                     </form>
                   </td>
                 </tr>}
-              </Fragment>)}
+              </Fragment>;
+              })}
               {!loading && users.length === 0 && <tr><td colSpan={7} className={styles.empty}>没有匹配的账号</td></tr>}
             </tbody>
           </table>

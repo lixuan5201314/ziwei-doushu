@@ -33,6 +33,8 @@ export function formToBirthInfo(form: BirthFormState): BirthInfo {
     city: form.city || undefined,
     longitude: form.province ? form.longitude : undefined,
     timeStandard: time.corrected ? 'true-solar' : 'clock',
+    unknownTime: form.unknownTime || undefined,
+    origInput: form.unknownTime ? undefined : { ...date, clockHour: Number(form.clockHour), clockMinute: Number(form.clockMinute) },
   };
 }
 

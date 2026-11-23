@@ -7,6 +7,7 @@ export interface AuthUserRecord {
   name: string;
   passwordHash: string;
   role: UserRole;
+  isSuperAdmin: boolean;
   status: UserStatus;
   createdAt: string;
   updatedAt: string;
@@ -18,6 +19,7 @@ export interface PublicUser {
   email: string;
   name: string;
   role: UserRole;
+  isSuperAdmin: boolean;
   status: UserStatus;
   createdAt: string;
   updatedAt: string;

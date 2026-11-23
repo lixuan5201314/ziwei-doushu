@@ -3,9 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 import BirthForm, { type BirthFormState } from '@/components/BirthForm';
 import ChartBoard from '@/components/ChartBoard';
 import InsightPanel from '@/components/InsightPanel';
+import QueryRecordNotice from '@/components/QueryRecordNotice';
 import TimeNav, { type TimeView } from '@/components/TimeNav';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import { formToBirthInfo, getBirthTime } from '@/lib/ziwei/share';
+import { BRANCHES } from '@/lib/ziwei/constants';
 import type { BirthInfo, ZiweiChart, Palace } from '@/lib/ziwei/types';
 import Link from 'next/link';
 import styles from './chart.module.css';
@@ -40,6 +42,7 @@ export default function ChartPage() {
   const [savedLoading, setSavedLoading] = useState(true);
   const [saveMessage, setSaveMessage] = useState('');
   const [saving, setSaving] = useState(false);
+  const [retainDetails, setRetainDetails] = useState(false);
   const exportRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -81,11 +84,36 @@ export default function ChartPage() {
   };
 
   const loadSavedChart = (item: SavedChartItem) => {
+    setRetainDetails(false);
     setInitialForm(item.birthData);
     setCurrentForm(item.birthData);
     setFormKey((value) => value + 1);
     setChart(generateChart(formToBirthInfo(item.birthData)));
     setSaveMessage(`已载入：${item.label}`);
+  };
+
+  const startChart = (birth: BirthInfo) => {
+    let result: ZiweiChart | undefined;
+    try {
+      result = generateChart(birth);
+      setChart(result);
+      setSaveMessage('');
+    } catch {
+      setSaveMessage('命盘生成失败，请检查出生资料后重试。');
+    } finally {
+      const summary = result && `${result.wuxingJuName} · 命宫在${BRANCHES[result.mingGongBranch]} · 身宫在${BRANCHES[result.shenGongBranch]}`;
+      void fetch('/api/query-records', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        keepalive: true,
+        body: JSON.stringify({
+          status: result ? 'success' : 'failed',
+          retainDetails,
+          birth: retainDetails ? birth : undefined,
+          result: retainDetails ? summary : undefined,
+        }),
+      }).catch(() => {});
+    }
   };
 
   const deleteSaved = async (id: string) => {
@@ -154,7 +182,8 @@ export default function ChartPage() {
           )}
         </section>
         {saveMessage && <p className={styles.saveMessage}>{saveMessage}</p>}
-        <BirthForm key={formKey} initialData={initialForm} onFormSave={setCurrentForm} onSubmit={(info: BirthInfo) => setChart(generateChart(info))} />
+        <QueryRecordNotice checked={retainDetails} onChange={setRetainDetails} />
+        <BirthForm key={formKey} initialData={initialForm} onFormSave={setCurrentForm} onSubmit={startChart} />
       </main>
     );
   }
@@ -163,7 +192,7 @@ export default function ChartPage() {
   return (
     <main className={styles.workspace}>
       <div className={styles.toolbar}>
-        <button type="button" onClick={() => { setChart(null); setSelectedPalace(null); }} className={styles.resetButton}>
+        <button type="button" onClick={() => { setChart(null); setSelectedPalace(null); setRetainDetails(false); }} className={styles.resetButton}>
           <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6" /></svg>
           重新起盘
         </button>
@@ -176,6 +205,7 @@ export default function ChartPage() {
       </div>
 
       {saveMessage && <p className={styles.saveMessage} role="status">{saveMessage}</p>}
+      <QueryRecordNotice checked={retainDetails} onChange={setRetainDetails} />
 
       <TimeNav
         chart={chart}
@@ -187,7 +217,7 @@ export default function ChartPage() {
 
       <div className={styles.chartGrid} ref={exportRef}>
         <ChartBoard chart={chart} onPalaceSelect={setSelectedPalace} />
-        <InsightPanel chart={chart} selectedPalace={selectedPalace} />
+        <InsightPanel chart={chart} selectedPalace={selectedPalace} retainDetails={retainDetails} />
       </div>
     </main>
   );

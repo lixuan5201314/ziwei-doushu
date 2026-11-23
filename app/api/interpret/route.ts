@@ -1,5 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
+import { isSameOrigin } from '@/lib/auth/validation';
+import { auditedAnalysisStream, withAnalysisAudit, type AnalysisAudit } from '@/lib/auth/query-audit';
 import { STEMS, BRANCHES } from '@/lib/ziwei/constants';
 import type { ZiweiChart, Palace } from '@/lib/ziwei/types';
 
@@ -83,11 +85,15 @@ function serializeChart(chart: ZiweiChart): string {
 }
 
 export async function POST(req: NextRequest) {
+  if (!isSameOrigin(req)) return Response.json({ message: '请求来源无效' }, { status: 403 });
   const user = await getCurrentUser();
   if (!user) {
     return Response.json({ message: '请先登录' }, { status: 401 });
   }
+  return withAnalysisAudit(user.id, 'interpret', (audit) => analyze(req, audit));
+}
 
+async function analyze(req: NextRequest, audit: AnalysisAudit) {
   // ── 1. 读配置 ──
   const provider = (process.env.AI_PROVIDER || 'deepseek').toLowerCase();
   const apiKey =
@@ -116,6 +122,7 @@ export async function POST(req: NextRequest) {
   let body: {
     chart?: ZiweiChart;
     messages?: { role: 'user' | 'assistant'; content: string }[];
+    retainDetails?: boolean;
   };
   try {
     body = await req.json();
@@ -126,13 +133,14 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  const history = Array.isArray(body.messages) ? body.messages : [];
+  const history = Array.isArray(body?.messages) ? body.messages : [];
   if (history.length === 0) {
     return new Response(JSON.stringify({ error: 'empty-messages' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json; charset=utf-8' },
     });
   }
+  if (body.retainDetails === true) audit.setBirths(body.chart?.birthInfo);
 
   // ── 3. 组装 messages ──
   const chartText = serializeChart(body.chart as ZiweiChart);
@@ -166,6 +174,7 @@ ${chartText}`;
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify(payload),
+      signal: req.signal,
     });
   } catch (e) {
     return new Response(
@@ -194,63 +203,7 @@ ${chartText}`;
     });
   }
 
-  // ── 5. 转换上游 SSE → 前端约定的 SSE 格式 ──
-  // 上游：data: {"choices":[{"delta":{"content":"..."}}]}
-  // 前端：data: {"delta":{"text":"..."}}
-  const encoder = new TextEncoder();
-  const stream = new ReadableStream({
-    async start(controller) {
-      const reader = upstream.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      const emit = (obj: unknown) =>
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify(obj)}\n\n`));
-
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-
-          for (const raw of lines) {
-            const line = raw.trim();
-            if (!line.startsWith('data:')) continue;
-            const data = line.slice(5).trim();
-            if (!data) continue;
-            if (data === '[DONE]') {
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              controller.close();
-              return;
-            }
-            try {
-              const parsed = JSON.parse(data);
-              const text = parsed?.choices?.[0]?.delta?.content;
-              if (typeof text === 'string' && text.length > 0) {
-                emit({ delta: { text } });
-              }
-            } catch {
-              /* 跳过不完整的分片 */
-            }
-          }
-        }
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
-      } catch (e) {
-        console.error('[interpret] stream error', e);
-        try {
-          emit({ delta: { text: '\n\n（连接中断，请重试）' } });
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        } catch { /* 忽略 */ }
-        controller.close();
-      }
-    },
-  });
-
-  return new Response(stream, {
+  return new Response(auditedAnalysisStream(upstream.body, audit), {
     status: 200,
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',

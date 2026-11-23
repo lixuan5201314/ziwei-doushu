@@ -8,5 +8,5 @@ export default async function AdminPage() {
   const user = await getCurrentUser();
   if (!user) redirect('/auth?returnTo=/admin');
   if (user.role !== 'admin') redirect('/account?error=forbidden');
-  return <AdminUsers currentUserId={user.id} currentUserName={user.name} />;
+  return <AdminUsers currentUserId={user.id} currentUserName={user.name} isSuperAdmin={user.isSuperAdmin} />;
 }

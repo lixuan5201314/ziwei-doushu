@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import styles from './AccountMenu.module.css';
 
-interface UserSummary { name: string; email: string; role: 'user' | 'admin' }
+interface UserSummary { name: string; email: string; role: 'user' | 'admin'; isSuperAdmin?: boolean }
 
 export default function AccountMenu() {
   const [user, setUser] = useState<UserSummary | null | undefined>(undefined);
@@ -21,7 +21,7 @@ export default function AccountMenu() {
 
   return (
     <div className={styles.links}>
-      {user.role === 'admin' && <Link href="/admin">后台</Link>}
+      {user.isSuperAdmin ? <Link href="/admin/advanced">高级后台</Link> : user.role === 'admin' && <Link href="/admin">后台</Link>}
       <Link className={styles.account} href="/account">{user.name || user.email}</Link>
     </div>
   );

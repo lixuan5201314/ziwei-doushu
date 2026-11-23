@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import BirthForm, { type BirthFormState } from '@/components/BirthForm';
+import QueryRecordNotice from '@/components/QueryRecordNotice';
 import { formToBirthInfo } from '@/lib/ziwei/share';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import { isValidGregorianDate } from '@/lib/ziwei/true-solar-time';
@@ -58,6 +59,7 @@ export default function HemingPage() {
   const [question, setQuestion] = useState('');
   const [analysisError, setAnalysisError] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
+  const [retainDetails, setRetainDetails] = useState(false);
   const analysisRef = useRef<HTMLDivElement>(null);
   const activeRequest = useRef<AbortController | null>(null);
 
@@ -69,6 +71,7 @@ export default function HemingPage() {
     setAnalyzing(false);
     setAnalysis('');
     setQuestion('');
+    setRetainDetails(false);
     setAnalysisError('');
     setFormError(null);
   }, []);
@@ -106,7 +109,7 @@ export default function HemingPage() {
       const res = await fetch('/api/heming', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chartA, chartB, question: q }),
+        body: JSON.stringify({ chartA, chartB, question: q, retainDetails }),
         signal: request.signal,
       });
       if (!res.ok) {
@@ -226,6 +229,8 @@ export default function HemingPage() {
             />
           </div>
         </div>
+
+        <QueryRecordNotice checked={retainDetails} onChange={setRetainDetails} twoPeople />
 
         {/* ═══ 大合盘分析框（视觉中心，始终显示）════════════════ */}
         <div ref={analysisRef} style={{

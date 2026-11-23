@@ -1,0 +1,5 @@
+.notice { margin-block: var(--space-4); color: var(--tx-2); font-size: 13px; line-height: 1.6; }
+.notice p { margin: 0 0 var(--space-2); }
+.notice a { margin-left: var(--space-2); color: var(--tx-1); text-underline-offset: 3px; }
+.notice label { display: flex; align-items: flex-start; gap: var(--space-2); cursor: pointer; text-align: left; }
+.notice input { flex-shrink: 0; margin: 3px 0 0; }

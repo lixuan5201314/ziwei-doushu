@@ -1,6 +1,7 @@
 import { mkdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import process from 'node:process';
+import { advancedSchema } from '../lib/auth/advanced-schema.mjs';
 
 const url = process.env.DATABASE_URL?.trim();
 if (!url) {
@@ -45,6 +46,7 @@ if (url.startsWith('sqlite:')) {
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS saved_charts_user_id_updated_at_idx ON saved_charts(user_id, updated_at DESC);
+    ${advancedSchema}
   `);
   db.close();
   console.log(`SQLite 账号数据库初始化完成：${filename}`);
@@ -60,7 +62,7 @@ const { default: pg } = await import('pg');
 const schema = await readFile(new URL('../db/auth-schema.sql', import.meta.url), 'utf8');
 const pool = new pg.Pool({ connectionString: url, ssl: process.env.DATABASE_SSL === 'false' ? false : process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : undefined, max: 1 });
 try {
-  await pool.query(schema);
+  await pool.query(schema + '\n' + advancedSchema);
   console.log('PostgreSQL 账号数据库初始化完成。');
 } finally {
   await pool.end();

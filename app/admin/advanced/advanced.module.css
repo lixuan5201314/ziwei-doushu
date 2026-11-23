@@ -1,0 +1,14 @@
+.page { width: min(1040px, calc(100% - 32px)); margin: 0 auto; padding: var(--space-8) 0 var(--space-12); }
+.back, .pagination a, .table a { color: var(--tx-1); text-underline-offset: 3px; }
+.back { font-size: 13px; }
+.page h1 { margin: var(--space-6) 0 var(--space-2); color: var(--tx-0); font-size: clamp(24px, 4vw, 36px); }
+.description { margin: 0; color: var(--tx-2); font-size: 14px; line-height: 1.65; overflow-wrap: anywhere; }
+.table table { min-width: 610px; }
+.pagination { display: flex; align-items: center; gap: var(--space-4); margin-top: var(--space-4); font-size: 13px; color: var(--tx-2); }
+.section { margin-top: var(--space-5); padding: var(--space-5); border: 1px solid var(--bdr); border-radius: var(--radius-3); background: var(--bg-card); }
+.section h2 { margin: 0 0 var(--space-3); color: var(--tx-0); font-size: 16px; }
+.fields { display: grid; gap: var(--space-2); margin: 0; }
+.fields div { display: grid; grid-template-columns: 80px minmax(0, 1fr); gap: var(--space-3); font-size: 14px; }
+.fields dt { color: var(--tx-2); }
+.fields dd { margin: 0; color: var(--tx-0); overflow-wrap: anywhere; }
+.result { margin: 0; color: var(--tx-1); font-size: 14px; line-height: 1.75; white-space: pre-wrap; overflow-wrap: anywhere; }

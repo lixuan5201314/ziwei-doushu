@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { getCurrentUser } from '@/lib/auth/session';
 import { isSameOrigin } from '@/lib/auth/validation';
+import { auditedAnalysisStream, withAnalysisAudit, type AnalysisAudit } from '@/lib/auth/query-audit';
 import { STEMS, BRANCHES } from '@/lib/ziwei/constants';
 import type { Palace, ZiweiChart } from '@/lib/ziwei/types';
 
@@ -106,61 +107,15 @@ function providerConfig() {
   };
 }
 
-function proxyStream(upstream: Response): ReadableStream<Uint8Array> {
-  const encoder = new TextEncoder();
-  return new ReadableStream({
-    async start(controller) {
-      const reader = upstream.body!.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-      const emit = (text: string) => controller.enqueue(encoder.encode(`data: ${JSON.stringify({ delta: { text } })}\n\n`));
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() ?? '';
-          for (const raw of lines) {
-            const line = raw.trim();
-            if (!line.startsWith('data:')) continue;
-            const data = line.slice(5).trim();
-            if (data === '[DONE]') {
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              controller.close();
-              return;
-            }
-            if (!data) continue;
-            try {
-              const text = JSON.parse(data)?.choices?.[0]?.delta?.content;
-              if (typeof text === 'string' && text) emit(text);
-            } catch {
-              // 等待后续完整 SSE 分片。
-            }
-          }
-        }
-        controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        controller.close();
-      } catch (error) {
-        console.error('[heming] stream error', error);
-        try {
-          emit('\n\n（连接中断，请重试）');
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-        } catch {
-          // 客户端可能已经断开。
-        }
-        controller.close();
-      }
-    },
-  });
-}
-
 export async function POST(request: NextRequest) {
   if (!isSameOrigin(request)) return Response.json({ message: '请求来源无效' }, { status: 403 });
   const user = await getCurrentUser();
   if (!user) return Response.json({ message: '请先登录' }, { status: 401 });
   if (!allowRequest(user.id)) return Response.json({ message: '请求较频繁，请一分钟后再试' }, { status: 429 });
+  return withAnalysisAudit(user.id, 'heming', (audit) => analyze(request, audit));
+}
 
+async function analyze(request: NextRequest, audit: AnalysisAudit) {
   const contentLength = Number(request.headers.get('content-length') || 0);
   if (contentLength > 500_000) return Response.json({ message: '命盘数据过大' }, { status: 413 });
 
@@ -168,10 +123,12 @@ export async function POST(request: NextRequest) {
     chartA?: unknown;
     chartB?: unknown;
     question?: unknown;
+    retainDetails?: boolean;
   } | null;
   if (!isValidChart(body?.chartA) || !isValidChart(body?.chartB)) {
     return Response.json({ message: '双方命盘数据不完整' }, { status: 400 });
   }
+  if (body.retainDetails === true) audit.setBirths(body.chartA.birthInfo, body.chartB.birthInfo);
 
   const question = String(body?.question ?? '').trim().slice(0, 500);
   const charts = `${serializeChart(body.chartA, '甲方')}\n\n${serializeChart(body.chartB, '乙方')}`;
@@ -199,6 +156,7 @@ export async function POST(request: NextRequest) {
         temperature: 0.35,
         max_tokens: 2200,
       }),
+      signal: request.signal,
     });
   } catch {
     return Response.json({ message: '无法连接 AI 服务，请稍后重试' }, { status: 502 });
@@ -217,7 +175,7 @@ export async function POST(request: NextRequest) {
     return Response.json({ message }, { status: 502 });
   }
 
-  return new Response(proxyStream(upstream), {
+  return new Response(auditedAnalysisStream(upstream.body, audit), {
     headers: {
       'Content-Type': 'text/event-stream; charset=utf-8',
       'Cache-Control': 'no-cache, no-transform',
