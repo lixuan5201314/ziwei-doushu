@@ -2,7 +2,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import BirthForm, { type BirthFormState } from '@/components/BirthForm';
-import QueryRecordNotice from '@/components/QueryRecordNotice';
 import { formToBirthInfo } from '@/lib/ziwei/share';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import { isValidGregorianDate } from '@/lib/ziwei/true-solar-time';
@@ -227,8 +226,6 @@ export default function HemingPage() {
             />
           </div>
         </div>
-
-        <QueryRecordNotice />
 
         {/* ═══ 大合盘分析框（视觉中心，始终显示）════════════════ */}
         <div ref={analysisRef} style={{

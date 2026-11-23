@@ -3,7 +3,6 @@ import { useEffect, useRef, useState } from 'react';
 import BirthForm, { type BirthFormState } from '@/components/BirthForm';
 import ChartBoard from '@/components/ChartBoard';
 import InsightPanel from '@/components/InsightPanel';
-import QueryRecordNotice from '@/components/QueryRecordNotice';
 import TimeNav, { type TimeView } from '@/components/TimeNav';
 import { generateChart } from '@/lib/ziwei/algorithm';
 import { formToBirthInfo, getBirthTime } from '@/lib/ziwei/share';
@@ -180,7 +179,6 @@ export default function ChartPage() {
           )}
         </section>
         {saveMessage && <p className={styles.saveMessage}>{saveMessage}</p>}
-        <QueryRecordNotice />
         <BirthForm key={formKey} initialData={initialForm} onFormSave={setCurrentForm} onSubmit={startChart} />
       </main>
     );
@@ -203,7 +201,6 @@ export default function ChartPage() {
       </div>
 
       {saveMessage && <p className={styles.saveMessage} role="status">{saveMessage}</p>}
-      <QueryRecordNotice />
 
       <TimeNav
         chart={chart}
