@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { hashPassword } from '@/lib/auth/crypto';
-import { countUsers, createUser, findUserByEmail } from '@/lib/auth/store';
+import { createUser, findUserByEmail } from '@/lib/auth/store';
 import { startUserSession } from '@/lib/auth/session';
 import { allowAuthAttempt, requestIp } from '@/lib/auth/rate-limit';
 import { isSameOrigin, isValidEmail, normalizeEmail, validatePassword } from '@/lib/auth/validation';
@@ -22,10 +22,7 @@ export async function POST(request: Request) {
     if (passwordError) return NextResponse.json({ message: passwordError }, { status: 400 });
     if (await findUserByEmail(email)) return NextResponse.json({ message: '该邮箱已经注册' }, { status: 409 });
 
-    const configuredAdmins = (process.env.ADMIN_EMAILS ?? '').split(',').map((item) => item.trim().toLowerCase()).filter(Boolean);
-    const isDevelopmentBootstrap = process.env.NODE_ENV !== 'production' && configuredAdmins.length === 0 && await countUsers() === 0;
-    const role = configuredAdmins.includes(email) || isDevelopmentBootstrap ? 'admin' : 'user';
-    const user = await createUser({ email, name: name || email.split('@')[0], passwordHash: await hashPassword(password), role });
+    const user = await createUser({ email, name: name || email.split('@')[0], passwordHash: await hashPassword(password), role: 'user' });
     await startUserSession(user.id);
     return NextResponse.json({ ok: true, user: { id: user.id, email: user.email, name: user.name, role: user.role, status: user.status } }, { status: 201 });
   } catch (error) {

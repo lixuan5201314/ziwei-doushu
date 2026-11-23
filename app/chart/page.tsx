@@ -5,7 +5,7 @@ import ChartBoard from '@/components/ChartBoard';
 import InsightPanel from '@/components/InsightPanel';
 import TimeNav, { type TimeView } from '@/components/TimeNav';
 import { generateChart } from '@/lib/ziwei/algorithm';
-import { formToBirthInfo } from '@/lib/ziwei/share';
+import { formToBirthInfo, getBirthTime } from '@/lib/ziwei/share';
 import type { BirthInfo, ZiweiChart, Palace } from '@/lib/ziwei/types';
 import Link from 'next/link';
 import styles from './chart.module.css';
@@ -96,22 +96,29 @@ export default function ChartPage() {
   };
 
   const saveCurrentChart = async () => {
-    if (!currentForm) return;
+    if (!currentForm || saving) return;
     setSaving(true);
     setSaveMessage('');
-    const response = await fetch('/api/charts', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ birthData: currentForm }),
-    });
-    const result = await response.json();
-    if (response.ok) {
-      setSavedCharts((items) => [result.chart, ...items].slice(0, 50));
-      setSaveMessage('命盘已保存到当前账号');
-    } else {
-      setSaveMessage(result.message || '保存失败');
+    try {
+      const response = await fetch('/api/charts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ birthData: currentForm }),
+        signal: AbortSignal.timeout(15_000),
+      });
+      const result = await response.json() as { chart?: SavedChartItem; message?: string };
+      if (response.ok && result.chart) {
+        const savedChart = result.chart;
+        setSavedCharts((items) => [savedChart, ...items].slice(0, 50));
+        setSaveMessage('命盘已保存到当前账号');
+      } else {
+        setSaveMessage(result.message || '保存失败，请稍后重试');
+      }
+    } catch {
+      setSaveMessage('未能确认保存，请稍后重试');
+    } finally {
+      setSaving(false);
     }
-    setSaving(false);
   };
 
   // ── 未起盘：展示出生信息表单 ──
@@ -129,7 +136,22 @@ export default function ChartPage() {
         </header>
         <section className={styles.savedSection}>
           <div className={styles.savedHeader}><div><p>账号记录</p><h2>已保存命盘</h2></div><span>{savedCharts.length} 条</span></div>
-          {savedLoading ? <p className={styles.savedEmpty}>正在加载</p> : savedCharts.length === 0 ? <p className={styles.savedEmpty}>还没有保存记录。生成命盘后可保存到当前账号。</p> : <div className={styles.savedList}>{savedCharts.map((item) => <div className={styles.savedItem} key={item.id}><div><strong>{item.label}</strong><span>{new Date(item.updatedAt).toLocaleDateString('zh-CN')} · {item.birthData.useTrueSolarTime ? '真太阳时' : '钟表时间'}</span></div><div><button type="button" onClick={() => loadSavedChart(item)}>载入</button><button className={styles.deleteButton} type="button" onClick={() => void deleteSaved(item.id)}>删除</button></div></div>)}</div>}
+          {savedLoading ? <p className={styles.savedEmpty}>正在加载</p> : savedCharts.length === 0 ? <p className={styles.savedEmpty}>还没有保存记录。生成命盘后可保存到当前账号。</p> : (
+            <div className={styles.savedList}>
+              {savedCharts.map((item) => {
+                const timeLabel = item.birthData.unknownTime ? '时间不详' : getBirthTime(item.birthData).corrected ? '真太阳时' : '钟表时间';
+                return (
+                  <div className={styles.savedItem} key={item.id}>
+                    <div><strong>{item.label}</strong><span>{new Date(item.updatedAt).toLocaleDateString('zh-CN')} · {timeLabel}</span></div>
+                    <div>
+                      <button type="button" onClick={() => loadSavedChart(item)}>载入</button>
+                      <button className={styles.deleteButton} type="button" onClick={() => void deleteSaved(item.id)}>删除</button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </section>
         {saveMessage && <p className={styles.saveMessage}>{saveMessage}</p>}
         <BirthForm key={formKey} initialData={initialForm} onFormSave={setCurrentForm} onSubmit={(info: BirthInfo) => setChart(generateChart(info))} />
@@ -153,7 +175,7 @@ export default function ChartPage() {
         </div>
       </div>
 
-      {saveMessage && <p className={styles.saveMessage}>{saveMessage}</p>}
+      {saveMessage && <p className={styles.saveMessage} role="status">{saveMessage}</p>}
 
       <TimeNav
         chart={chart}

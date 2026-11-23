@@ -1,11 +1,10 @@
 'use client';
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import BirthForm, { type BirthFormState } from '@/components/BirthForm';
 import { formToBirthInfo } from '@/lib/ziwei/share';
-import { generateChart as buildChart } from '@/lib/ziwei/algorithm';
-import type { BirthInfo, ZiweiChart } from '@/lib/ziwei/types';
-import { useTheme } from '@/components/ThemeProvider';
+import { generateChart } from '@/lib/ziwei/algorithm';
+import { isValidGregorianDate } from '@/lib/ziwei/true-solar-time';
 
 // ─── AiContent 渲染器（与 InsightPanel 一致）────────────────
 function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
@@ -49,13 +48,7 @@ function AiContent({ text, streaming }: { text: string; streaming?: boolean }) {
 
 export default function HemingPage() {
   const router = useRouter();
-  const { theme } = useTheme();
-  const isDark = theme === 'dark';
 
-  // ─── 双方命盘状态 ─────────────────────────────────────────
-  const [chartA, setChartA] = useState<ZiweiChart | null>(null);
-  const [chartB, setChartB] = useState<ZiweiChart | null>(null);
-  // 双方表单状态由 BirthForm onFormSave 同步到此处，统一按钮触发起盘
   const [formA, setFormA] = useState<BirthFormState | null>(null);
   const [formB, setFormB] = useState<BirthFormState | null>(null);
 
@@ -66,54 +59,55 @@ export default function HemingPage() {
   const [analysisError, setAnalysisError] = useState('');
   const [formError, setFormError] = useState<string | null>(null);
   const analysisRef = useRef<HTMLDivElement>(null);
+  const activeRequest = useRef<AbortController | null>(null);
 
-  // ─── 起盘（单次调用，返回 chart 给统一流程使用）──────────
-  // 开源版不含后端 /api/generate：直接用本仓库的排盘引擎在浏览器里起盘
-  const generateChart = useCallback(async (info: BirthInfo): Promise<ZiweiChart | null> => {
-    try {
-      return buildChart(info);
-    } catch {
-      return null;
-    }
+  useEffect(() => () => { activeRequest.current?.abort(); }, []);
+
+  const clearAnalysis = useCallback(() => {
+    activeRequest.current?.abort();
+    activeRequest.current = null;
+    setAnalyzing(false);
+    setAnalysis('');
+    setQuestion('');
+    setAnalysisError('');
+    setFormError(null);
   }, []);
 
-  // 表单是否填齐
-  const isFormReady = (f: BirthFormState | null): boolean =>
-    !!(f && f.year && f.month && f.day && f.gender && (f.unknownTime || (f.clockHour !== '' && f.clockMinute !== '')));
+  const updateFormA = useCallback((data: BirthFormState) => {
+    setFormA(data);
+    clearAnalysis();
+  }, [clearAnalysis]);
+  const updateFormB = useCallback((data: BirthFormState) => {
+    setFormB(data);
+    clearAnalysis();
+  }, [clearAnalysis]);
 
-  // ─── 统一入口：起盘 + 合盘分析 ─────────────────────────────
-  const runAnalysis = useCallback(async (q?: string) => {
+  const runAnalysis = async (q?: string) => {
+    if (activeRequest.current) return;
     setFormError(null);
-    if (!isFormReady(formA) || !isFormReady(formB)) {
+    if (!formA || !formB || !formA.year || !formA.month || !formA.day || !formB.year || !formB.month || !formB.day) {
       setFormError('请先填写双方完整出生信息');
       return;
     }
+    if (![formA, formB].every(({ year, month, day }) => isValidGregorianDate(Number(year), Number(month), Number(day)))) {
+      setFormError('请检查双方出生日期是否有效');
+      return;
+    }
+    const request = new AbortController();
+    activeRequest.current = request;
     setAnalyzing(true);
     setAnalysis('');
     setAnalysisError('');
 
     try {
-      // 并行起两张盘（如果还没起）
-      let cA = chartA;
-      let cB = chartB;
-      const [newA, newB] = await Promise.all([
-        cA ? Promise.resolve(cA) : generateChart(formToBirthInfo(formA!)),
-        cB ? Promise.resolve(cB) : generateChart(formToBirthInfo(formB!)),
-      ]);
-      cA = newA;
-      cB = newB;
-      if (!cA || !cB) {
-        setAnalysisError('命盘生成失败，请检查双方出生信息后重试。');
-        setAnalyzing(false);
-        return;
-      }
-      if (!chartA) setChartA(cA);
-      if (!chartB) setChartB(cB);
+      const chartA = generateChart(formToBirthInfo(formA));
+      const chartB = generateChart(formToBirthInfo(formB));
 
       const res = await fetch('/api/heming', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chartA: cA, chartB: cB, question: q ?? undefined }),
+        body: JSON.stringify({ chartA, chartB, question: q }),
+        signal: request.signal,
       });
       if (!res.ok) {
         const result = await res.json().catch(() => null) as { message?: string } | null;
@@ -129,6 +123,7 @@ export default function HemingPage() {
 
       while (!finished) {
         const { done, value } = await reader.read();
+        if (request.signal.aborted) return;
         if (done) break;
         buffer += decoder.decode(value, { stream: true });
         const lines = buffer.split('\n');
@@ -144,14 +139,19 @@ export default function HemingPage() {
           } catch { /* skip */ }
         }
       }
-      // scroll to analysis
-      setTimeout(() => analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+      if (!text.trim()) throw new Error('AI 服务没有返回分析内容');
+      analysisRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     } catch (error) {
-      setAnalysisError(error instanceof Error && error.message ? error.message : '分析暂时不可用，请稍后重试。');
+      if (!request.signal.aborted) {
+        setAnalysisError(error instanceof Error && error.message ? error.message : '分析暂时不可用，请稍后重试。');
+      }
     } finally {
-      setAnalyzing(false);
+      if (activeRequest.current === request) {
+        activeRequest.current = null;
+        setAnalyzing(false);
+      }
     }
-  }, [chartA, chartB, formA, formB, generateChart]);
+  };
 
   const cardStyle = {
     background: 'var(--bg-card)',
@@ -212,7 +212,7 @@ export default function HemingPage() {
             <BirthForm
               hideSubmit
               onSubmit={() => {}}
-              onFormSave={setFormA}
+              onFormSave={updateFormA}
             />
           </div>
 
@@ -222,7 +222,7 @@ export default function HemingPage() {
             <BirthForm
               hideSubmit
               onSubmit={() => {}}
-              onFormSave={setFormB}
+              onFormSave={updateFormB}
             />
           </div>
         </div>

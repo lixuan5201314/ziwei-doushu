@@ -1,19 +1,16 @@
 import type { BirthFormState } from '@/components/BirthForm';
 import type { BirthInfo } from './types';
+import { calculateTrueSolarTime, resolveZiweiDayOffset, shiftGregorianDate } from './true-solar-time';
 
-/** 根据北京时间 + 经度计算真太阳时时辰支 (0-11) */
-export function calcTrueSolarBranch(clockHour: number, clockMinute: number, longitude: number): number {
-  const clockMins = clockHour * 60 + clockMinute;
-  const offset = (longitude - 120) * 4;
-  const solar = ((clockMins + offset) % 1440 + 1440) % 1440;
-  if (solar >= 1380 || solar < 60) return 0;
-  return Math.floor((solar - 60) / 120) + 1;
-}
-
-export function calcClockBranch(clockHour: number, clockMinute: number): number {
-  const clockMins = ((clockHour * 60 + clockMinute) % 1440 + 1440) % 1440;
-  if (clockMins >= 1380 || clockMins < 60) return 0;
-  return Math.floor((clockMins - 60) / 120) + 1;
+export function getBirthTime(form: BirthFormState) {
+  return calculateTrueSolarTime({
+    year: Number(form.year),
+    month: Number(form.month),
+    day: Number(form.day),
+    clockHour: form.unknownTime ? 0 : Number(form.clockHour),
+    clockMinute: form.unknownTime ? 0 : Number(form.clockMinute),
+    longitude: form.useTrueSolarTime && !form.unknownTime && form.city ? form.longitude : undefined,
+  });
 }
 
 /** BirthFormState → BirthInfo
@@ -24,35 +21,18 @@ export function calcClockBranch(clockHour: number, clockMinute: number): number 
  * 这与「时辰支同为子(0)」并不冲突——子时分早晚两段，需要在日期上区分。
  */
 export function formToBirthInfo(form: BirthFormState): BirthInfo {
-  let y = parseInt(form.year) || 0;
-  let m = parseInt(form.month) || 0;
-  let d = parseInt(form.day) || 0;
-
-  // 晚子时（23:00-23:59）按次日处理：用 Date 对象自动处理月末/年末进位
-  if (!form.unknownTime) {
-    const clockHour = parseInt(form.clockHour) || 0;
-    if (clockHour === 23 && y > 0 && m > 0 && d > 0) {
-      const next = new Date(y, m - 1, d + 1);
-      y = next.getFullYear();
-      m = next.getMonth() + 1;
-      d = next.getDate();
-    }
-  }
-
-  const hour = form.unknownTime
-    ? 0
-    : form.useTrueSolarTime
-      ? calcTrueSolarBranch(parseInt(form.clockHour) || 0, parseInt(form.clockMinute) || 0, form.longitude)
-      : calcClockBranch(parseInt(form.clockHour) || 0, parseInt(form.clockMinute) || 0);
+  const date = { year: Number(form.year), month: Number(form.month), day: Number(form.day) };
+  const time = getBirthTime(form);
+  const dayOffset = time.dateValid ? resolveZiweiDayOffset(time) : 0;
   return {
-    year: y, month: m, day: d,
-    hour,
+    ...(dayOffset === 0 ? date : shiftGregorianDate(date, dayOffset)),
+    hour: time.branch,
     gender: form.gender,
     name: form.name || undefined,
     province: form.province || undefined,
     city: form.city || undefined,
     longitude: form.province ? form.longitude : undefined,
-    timeStandard: form.useTrueSolarTime ? 'true-solar' : 'clock',
+    timeStandard: time.corrected ? 'true-solar' : 'clock',
   };
 }
 

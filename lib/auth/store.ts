@@ -159,16 +159,6 @@ function savedChartFromRow(row: DatabaseRow): SavedChartRecord {
   };
 }
 
-export async function countUsers(): Promise<number> {
-  if (usePostgres()) {
-    await ensurePostgresSchema();
-    const result = await getPool().query('SELECT COUNT(*)::int AS count FROM auth_users');
-    return Number(result.rows[0].count);
-  }
-  const row = getSqlite().prepare('SELECT COUNT(*) AS count FROM auth_users').get() as DatabaseRow;
-  return Number(row.count);
-}
-
 export async function findUserByEmail(email: string): Promise<AuthUserRecord | null> {
   if (usePostgres()) {
     await ensurePostgresSchema();
